@@ -1,13 +1,15 @@
-const axios = require("axios");
 const express = require("express");
+const axios = require("axios");
 
 const app = express();
 app.use(express.json());
 
+// ENV TOKEN
 const TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = "914604701726064";
 
-// 🔐 VERIFY WEBHOOK (WhatsApp → Webhooks)
+
+// 🔐 VERIFY WEBHOOK
 app.get("/webhook", (req, res) => {
   const VERIFY_TOKEN = "roma123";
 
@@ -17,67 +19,71 @@ app.get("/webhook", (req, res) => {
 
   if (mode && token) {
     if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("WEBHOOK_VERIFIED");
+      console.log("WEBHOOK VERIFIED ✅");
       return res.status(200).send(challenge);
     } else {
       return res.sendStatus(403);
     }
   }
 
-  res.send("ROMA BOT WEBHOOK");
+  res.send("ROMA BOT IS RUNNING");
 });
 
-// მომხმარებლის შეტყობინებების დამუშავება
+
+// 📩 RECEIVE INCOMING MESSAGES
 app.post("/webhook", (req, res) => {
-  const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  try {
+    const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-  if (entry) {
-    const from = entry.from; // მომხმარებლის ნომერი
-    const text = (entry.text?.body || "").toLowerCase();
+    if (entry) {
+      const from = entry.from;
+      const text = (entry.text?.body || "").toLowerCase();
 
-    if (text.includes("ბუშტ")) {
-      sendMessage(
-        from,
-        "🎈 ბუშტები:\n• ფერები: სხვადასხვა\n• ფასი: 1–5₾\n\nმომწერე რაოდენობა 🛒"
-      );
-    } else if (text.includes("სანთ")) {
-      sendMessage(
-        from,
-        "🕯 სანთლები:\n• დაბადების დღე\n• ოქროს/ვერცხლის\n• ფასი: 2–10₾\n\nრამდენი გინდა?"
-      );
-    } else {
-      sendMessage(
-        from,
-        "👋 მოგესალმები *ROMA* ბოტში!\n\nდამიწერე:\n• „ბუშტები“ – ბუშტების სანახავად\n• „სანთლები“ – სანთლების სანახავად\n\nან უბრალოდ მომწერე შეკვეთის დეტალები 🛍"
-      );
+      console.log("📩 Incoming:", text);
+
+      if (text.includes("ბუშტ")) {
+        sendMessage(from, "🎈 ბუშტები:\n• ფერები ყველა\n• ფასი: 1–5₾");
+      } else if (text.includes("სანთ")) {
+        sendMessage(from, "🕯 სანთლები:\n• ფასი: 2–10₾");
+      } else {
+        sendMessage(
+          from,
+          "👋 მოგესალმები *ROMA* ბოტში!\n\n1️⃣ ბუშტები\n2️⃣ სანთლები\n\nან მომწერე შეკვეთის დეტალები."
+        );
+      }
     }
+  } catch (err) {
+    console.log("❌ ERROR:", err);
   }
 
   res.sendStatus(200);
 });
 
-// მესიჯის გაგზავნა
+
+// 📤 SEND MESSAGE
 function sendMessage(to, text) {
-  return axios.post(
+  axios.post(
     `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
     {
       messaging_product: "whatsapp",
       to: to,
-      text: { body: text },
+      text: { body: text }
     },
     {
       headers: {
         Authorization: `Bearer ${TOKEN}`,
-      },
+        "Content-Type": "application/json"
+      }
     }
-  );
+  )
+  .then(() => console.log("📤 Sent:", text))
+  .catch((err) => console.log("❌ SEND ERROR", err.response?.data));
 }
 
-// Health check
+
+// HEALTH CHECK
 app.get("/", (req, res) => {
-  res.send("ROMA BOT IS RUNNING ✅");
+  res.send("ROMA BOT ONLINE 🟢");
 });
 
-app.listen(3000, () => {
-  console.log("ROMA WhatsApp Bot running on port 3000");
-});
+app.listen(3000, () => console.log("🚀 ROMA BOT RUNNING ON PORT 3000"));
